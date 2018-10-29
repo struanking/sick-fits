@@ -26,7 +26,7 @@ const Nav = () => (
         )}
         {!me && (
           <Link href="/signup">
-            <a>Sign up</a>
+            <a>Sign in</a>
           </Link>
         )}
       </NavStyles>

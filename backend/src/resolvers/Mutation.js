@@ -2,14 +2,25 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { randomBytes } = require("crypto");
 const { promisify } = require("util");
+const { transport, makeANiceEmail } = require("../mail");
+const { hasPermission } = require("../utils");
 
 const Mutations = {
   async createItem(parent, args, ctx, info) {
-    // TODO: Check if they are logged in
+    // Check if they are logged in
+    if (!ctx.request.userId) {
+      throw new Error("You must be logged in to do that!");
+    }
 
     const item = await ctx.db.mutation.createItem(
       {
         data: {
+          // this is how to create a relationship between the item and the User
+          user: {
+            connect: {
+              id: ctx.request.userId
+            }
+          },
           ...args
         }
       },
@@ -48,10 +59,18 @@ const Mutations = {
       {
         id
         title
+        user { id }
       }
     `
     );
     // 2. check they own it or have permission
+    const ownsItem = item.user.id === ctx.request.userId;
+    const hasPermissions = ctx.request.user.permissions.some(permission =>
+      ["ADMIN", "ITEMDELETE"].includes(permission)
+    );
+    if (!ownsItem || !hasPermissions) {
+      throw new Error("You don't have permission to do that!");
+    }
     // 3. delete it
     return ctx.db.mutation.deleteItem({ where }, info);
   },
@@ -85,6 +104,7 @@ const Mutations = {
     // 3. generate the JWT token
     // 4. Set the cookie with the token
     // 5. return the user
+    const { email, password } = args;
     const user = await ctx.db.query.user({ where: { email } });
     if (!user) {
       throw new Error(`No such user found for email ${email}`);
@@ -116,6 +136,7 @@ const Mutations = {
     // check real user
     // set a reset token and expiry on that user
     // Email user
+    // Return message
     const user = await ctx.db.query.user({ where: { email: args.email } });
     if (!user) {
       throw new Error("No such user found for email");
@@ -127,6 +148,18 @@ const Mutations = {
       where: { email: args.email },
       data: { resetToken, resetTokenExpiry }
     });
+    // could wrap in a try catch
+    const mailRes = await transport.sendMail({
+      from: "stru@ssdk.com",
+      to: user.email,
+      subject: "Your password",
+      html: makeANiceEmail(`Your password reset token is here!
+      \n\n
+      <a href="${
+        process.env.FRONTEND_URL
+      }/reset?resetToken=${resetToken}">Click here to reset</a>`)
+    });
+
     return { message: "Thanks" };
   },
 
@@ -166,6 +199,38 @@ const Mutations = {
       maxAge: 1000 * 60 * 60 * 24 * 365
     });
     return updatedUser;
+  },
+
+  async updatePermissions(parent, args, ctx, info) {
+    // 1. check if logged in
+    if (!ctx.request.userId) {
+      throw new Error("You must be logged in");
+    }
+    // 2. query the current user
+    const currentUser = await ctx.db.query.user(
+      {
+        where: {
+          id: ctx.request.userId
+        }
+      },
+      info
+    );
+    // 3. check if they have permissions to update
+    hasPermission(currentUser, ["ADMIN", "PERMISSIONUPDATE"]);
+    // 4. update
+    return ctx.db.mutation.updateUser(
+      {
+        data: {
+          permissions: {
+            set: args.permissions
+          }
+        },
+        where: {
+          id: args.userId
+        }
+      },
+      info
+    );
   }
 };
 
