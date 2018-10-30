@@ -231,6 +231,76 @@ const Mutations = {
       },
       info
     );
+  },
+
+  async addToCart(parent, args, ctx, info) {
+    // 2. User is signed in
+    const { userId } = ctx.request;
+    if (!userId) {
+      throw new Error("You must be signed in");
+    }
+    // 2. Query the user's current cart
+    const [existingCartItem] = await ctx.db.query.cartItems({
+      where: {
+        user: { id: userId },
+        item: { id: args.id }
+      }
+    });
+    // 3. Check if that item is already in cart: inc or
+    if (existingCartItem) {
+      console.log("This item is already in the cart");
+      return ctx.db.mutation.updateCartItem(
+        {
+          where: { id: existingCartItem.id },
+          data: { quantity: existingCartItem.quantity + 1 }
+        },
+        info
+      );
+    }
+
+    // 4. add new item
+    return ctx.db.mutation.createCartItem(
+      {
+        data: {
+          user: {
+            // connect relationship in Prisma
+            connect: { id: userId }
+          },
+          item: {
+            connect: { id: args.id }
+          }
+        }
+      },
+      info
+    );
+  },
+
+  async removeFromCart(parent, args, ctx, info) {
+    // 1. Find cart item
+    const cartItem = await ctx.db.query.cartItem(
+      {
+        where: {
+          id: args.id
+        }
+      },
+      `{ id, user { id } }`
+    );
+
+    // 2. Make sure we found item
+    if (!cartItem) throw new Error("No cart item found!");
+
+    // 3. Make sure user owns cart
+    if (cartItem.user.id !== ctx.request.userId) {
+      throw new Error("Cheatin huh?");
+    }
+
+    // 3. Delete cart item
+    return ctx.db.mutation.deleteCartItem(
+      {
+        where: { id: args.id }
+      },
+      info
+    );
   }
 };
 

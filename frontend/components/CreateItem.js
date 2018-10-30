@@ -1,20 +1,20 @@
-import React, { Component } from 'react'
-import { Mutation } from 'react-apollo';
-import Form from './styles/Form';
-import gql from 'graphql-tag';
-import formatMoney from '../lib/formatMoney';
-import Error from './ErrorMessage';
-import Router from 'next/router';
+import React, { Component } from "react";
+import { Mutation } from "react-apollo";
+import Form from "./styles/Form";
+import gql from "graphql-tag";
+import formatMoney from "../lib/formatMoney";
+import Error from "./ErrorMessage";
+import Router from "next/router";
 
 const CREATE_ITEM_MUTATION = gql`
   mutation CREATE_ITEM_MUTATION(
-    $title: String!,
-    $description: String!,
-    $price: Int!,
-    $image: String,
+    $title: String!
+    $description: String!
+    $price: Int!
+    $image: String
     $largeImage: String
   ) {
-    createItem (
+    createItem(
       description: $description
       title: $title
       price: $price
@@ -28,36 +28,39 @@ const CREATE_ITEM_MUTATION = gql`
 
 class CreateItem extends Component {
   state = {
-    title: '',
-    description: '',
-    image: '',
-    largeImage: '',
+    title: "",
+    description: "",
+    image: "",
+    largeImage: "",
     price: 0
   };
 
   // instance property to bind 'this'
-  handleChange = (e) => {
+  handleChange = e => {
     const { name, type, value } = e.target;
-    const val = type === ('number' && value.length) ? parseFloat(value) : value;
+    const val = type === ("number" && value.length) ? parseFloat(value) : value;
     this.setState({ [name]: val });
   };
 
   uploadFile = async e => {
-    console.log('uploading file...');
+    console.log("uploading file...");
     const files = e.target.files;
     const data = new FormData();
-    data.append('file', files[0]);
-    data.append('upload_preset', 'sickfits');
+    data.append("file", files[0]);
+    data.append("upload_preset", "sickfits");
 
-    const res = await fetch('https://api.cloudinary.com/v1_1/kingsthings/image/upload', {
-      method: 'POST',
-      body: data,
-    });
+    const res = await fetch(
+      "https://api.cloudinary.com/v1_1/kingsthings/image/upload",
+      {
+        method: "POST",
+        body: data
+      }
+    );
     const file = await res.json();
     console.log(file);
     this.setState({
       image: file.secure_url,
-      largeImage: file.eager[0].secure_url,
+      largeImage: file.eager[0].secure_url
     });
   };
 
@@ -66,18 +69,20 @@ class CreateItem extends Component {
       <div>
         <Mutation mutation={CREATE_ITEM_MUTATION} variables={this.state}>
           {(createItem, { loading, error }) => (
-            <Form onSubmit={async (e) => {
-              // stop form from submitting
-              e.preventDefault();
-              // call the mutation
-              const res = await createItem();
-              // change to single item page
-              console.log({...res});
-              Router.push({
-                pathname: '/item',
-                query: { id: res.data.createItem.id }
-              })
-            }}>
+            <Form
+              onSubmit={async e => {
+                // stop form from submitting
+                e.preventDefault();
+                // call the mutation
+                const res = await createItem();
+                // change to single item page
+                console.log({ ...res });
+                Router.push({
+                  pathname: "/item",
+                  query: { id: res.data.createItem.id }
+                });
+              }}
+            >
               <Error error={error} />
               <fieldset disabled={loading} aria-busy={loading}>
                 <label htmlFor="file">
@@ -91,7 +96,11 @@ class CreateItem extends Component {
                     onChange={this.uploadFile}
                   />
                   {this.state.image && (
-                    <img width="200" src={this.state.image} alt="Upload Preview" />
+                    <img
+                      width="200"
+                      src={this.state.image}
+                      alt="Upload Preview"
+                    />
                   )}
                 </label>
                 <label htmlFor="title">
@@ -132,15 +141,13 @@ class CreateItem extends Component {
                     onChange={this.handleChange}
                   />
                 </label>
-                <button
-                  type="submit"
-                >Submit</button>
+                <button type="submit">Submit</button>
               </fieldset>
             </Form>
           )}
         </Mutation>
       </div>
-    )
+    );
   }
 }
 
