@@ -29,6 +29,7 @@ function totalItems(cart) {
 
 class TakeMyMoney extends React.Component {
   onToken = async (res, createOrder) => {
+    NProgress.start();
     console.log("Token", res.id);
     const order = await createOrder({
       variables: {
@@ -36,6 +37,12 @@ class TakeMyMoney extends React.Component {
       }
     }).catch(err => {
       alert(err.message);
+    });
+    Router.push({
+      pathname: "/order",
+      query: {
+        id: order.data.createOrder.id
+      }
     });
     console.log(order);
   };
